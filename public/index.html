@@ -1,0 +1,435 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="user-scalable=no,
+    width=device-width, initial-scale=1.0">
+    <title>P03_WebGame02</title>
+    <style>
+    </style>
+  </head>
+  <body>
+  <script src = "js/phaser.min.js"></script>
+  <script type="text/javascript">
+
+    // to do
+    // 구름이 이동하게 : 앞으로 가는듯한 모션 주기  -> complete!
+    // player 비행기 생성 : 키보드 조작 기능 -> complete!
+    // enemy 비행기 생성 : 랜덤위치생성 + 자동공격 + 와리가/ -> complete!
+    // enemy & player bullet 충돌감지 : player bullet kill + damage -> complete!
+    // enemy 체력 소진시 폭발하며 삭제 : 삭제는 완료, 폭발 애니메이션 구현 필요!!! -> complete!
+    // player & enemy bullet 충돌감지 : enemy bullet kill + damage -> complete!
+    // player 체력 소진시 폭발 + 게임오버 : 게임 중단 -> complete
+    // game restart 구현
+
+
+    var config = {
+      type : Phaser.AUTO,
+      width : 600,
+      height: 600,
+      physics: {
+        default: 'arcade',
+        arcade: {
+            gravity: {y:0},
+            debug: false
+        }
+      },
+      scene:{
+        preload:preload,
+        create:create,
+        update:update
+      },
+      backgroundColor : '#1abbf6'
+    };
+
+    var game = new Phaser.Game(config);
+
+    var clouds;
+    var cloudspeed = 1.5;
+    var player;
+    var cursors;
+    var speed = 4;
+    const player_width = 72;
+    const player_height = 58;
+    var enemy;
+    var enemy_position_x;
+    var enemy_position_y;
+    var bullets;
+    var fireButton;
+    var bulletTime = 0;
+    var fireRate = 100;
+    var bulletSpeed = 500;
+    var enemyBullets;
+    var enemyBulletSpeed = 300;
+    var enemyFireRate = 500;
+    var enemyMoving;
+    var text1;
+    var text2;
+    var stateText;
+    var hit;
+    var enemyFiring;
+    var isGameOver = false;
+    var canPlayerFire = true;
+    var hearts;
+    var heartWidth = 16;
+    var haertHeight = 16;
+    var blackhearts;
+
+    function preload(){
+      // clouds
+      this.load.image('cloud01', 'images/cloud01.png');
+      this.load.image('cloud02', 'images/cloud02.png');
+      this.load.image('cloud03', 'images/cloud03.png');
+      this.load.image('cloud04', 'images/cloud04.png');
+      this.load.image('cloud05', 'images/cloud05.png');
+      this.load.image('cloud06', 'images/cloud06.png');
+      this.load.image('cloud07', 'images/cloud07.png');
+      // player
+      this.load.image('player', 'images/aircraft.png');
+      // enemy
+      this.load.image('enemy', 'images/enemy01.png');
+      // bullets_player
+      this.load.image('bullet01', 'images/bullet03.png');
+      this.load.image('bullet02', 'images/bullet04.png');
+      // boom01
+      this.load.image('boom01', 'images/boom04.png');
+      // boom02 : object die
+      this.load.spritesheet('boom02', 'images/explosion.png',
+      {frameWidth:64, frameHeight:64, endFrame:23});
+      // heart
+      this.load.image('heart01', 'images/heart01.png');
+      this.load.image('heart02', 'images/heart02.png');
+    }
+
+    function create(){
+      // clouds group
+      clouds = this.physics.add.group();
+      clouds.create(100, 100, 'cloud01').setScale(1.3);
+      clouds.create(500, 200, 'cloud03').setScale(1.3);
+      clouds.create(150, 200, 'cloud04').setScale(1.3);
+      clouds.create(500, 500, 'cloud05').setScale(1.3);
+      clouds.create(100, 400, 'cloud06').setScale(1.3);
+      clouds.create(400, 300, 'cloud07').setScale(1.3);
+
+      // heart02 : blackheart
+      blackhearts = this.add.group();
+      blackhearts.create(460, 50, 'heart02');
+      blackhearts.create(460+heartWidth+10, 50, 'heart02');
+      blackhearts.create(460+heartWidth*2+20, 50, 'heart02');
+      blackhearts.create(460+heartWidth*3+30, 50, 'heart02');
+      blackhearts.create(460+heartWidth*4+40, 50, 'heart02');
+
+      // heart01
+      hearts = this.add.group();
+      hearts.create(460, 50, 'heart01');
+      hearts.create(460+heartWidth+10, 50, 'heart01');
+      hearts.create(460+heartWidth*2+20, 50, 'heart01');
+      hearts.create(460+heartWidth*3+30, 50, 'heart01');
+      hearts.create(460+heartWidth*4+40, 50, 'heart01');
+
+
+      // player
+      player = this.physics.add.sprite(300,500, 'player');
+      player.body.collideWorldBounds = true;
+      player.health = 5;
+
+      // cursor
+      cursors = this.input.keyboard.createCursorKeys();
+      fireButton = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
+
+      // enemy
+      enemy = this.physics.add.sprite(100, 100, 'enemy');
+      enemy_position_x = Math.floor(Math.random()*500)+50;
+      enemy_position_y = Math.floor(Math.random()*100)+50;
+      enemy.x = enemy_position_x;
+      enemy.y = -300;
+      enemy.health = 10;
+      enemy.body.collideWorldBounds = true;
+
+      // enemy moving
+      enemyMoving = this.tweens.add({
+        targets : enemy.body.velocity,
+        props:{
+          x:{from:100, to:-100, duration:4000},
+          y:{}
+        },
+        ease: "Sine.easeInOut",
+        yoyo: true,
+        repeat: -1
+      });
+
+      //bullet extends
+      var Bullet = new Phaser.Class({
+
+        Extends: Phaser.GameObjects.Image,
+        initialize:
+        function Bullet (scene)
+        {
+            Phaser.GameObjects.Image.call(this, scene, 0, 0, 'bullet01');
+            this.speed = Phaser.Math.GetSpeed(bulletSpeed, 1);
+        },
+        fire: function (x, y)
+        {
+            this.setPosition(x, y - player_height/2);
+            this.setActive(true);
+            this.setVisible(true);
+        },
+        update: function (time, delta)
+        {
+            this.y -= this.speed * delta;
+            if (this.y < -50)
+            {
+                this.setActive(false);
+                this.setVisible(false);
+            }
+            bulletPositionX = this.x;
+            bulletPositionY = this.y;
+        }
+      });
+
+      // enemyBullet exetends
+      var enemyBullet = new Phaser.Class({
+
+        Extends: Phaser.GameObjects.Image,
+        initialize:
+        function Bullet (scene)
+        {
+            Phaser.GameObjects.Image.call(this, scene, 0, 0, 'bullet02');
+            this.speed = Phaser.Math.GetSpeed(enemyBulletSpeed, 1);
+            this.setScale(1.5,1.5);
+        },
+        fire: function (x, y)
+        {
+            this.setPosition(x, y+20);
+            this.setActive(true);
+            this.setVisible(true);
+        },
+        update: function (time, delta)
+        {
+            this.y += this.speed * delta;
+            if (this.y > 650)
+            {
+                this.setActive(false);
+                this.setVisible(false);
+            }
+        }
+      });
+
+      //player bullet
+      bullets = this.physics.add.group({
+        name:"bullet",
+        classType:Bullet,
+        maxSize:10,
+        runChildUpdate:true
+      });
+
+      // enemy bullet
+      enemyBullets = this.physics.add.group({
+        name:"enemyBullet",
+        classType:enemyBullet,
+        quantity:3,
+        maxSize:5,
+        runChildUpdate:true,
+      });
+
+      // enemy firing
+      enemyFiring = this.time.addEvent({
+        delay: 750 - enemyFireRate,
+        loop: true,
+        callback: enemyFire
+      });
+
+      //text
+      text1 = this.add.text(   0,32,"", {
+        font : '16px monospace'
+      });
+      text2 = this.add.text(0,64,"", {
+        font : '16px monospace'
+      });
+      stateText = this.add.text(300,300,"",{
+        fontSize : '26px',
+        color:'#ff0000',
+        align : 'center'
+      }).setOrigin(0.5);
+      stateText.visible = false;
+
+
+      // overlap 1 : enemy & bullets
+      this.physics.add.overlap(enemy, bullets,
+      function enemyHit(_enemy, bullet){
+        hit.setSpeedY(0.2 * bullet.body.velocity.y).emitParticleAt(bullet.body.x, bullet.body.y);
+        bullet.setActive(false);
+        bullet.setVisible(false);
+        bullets.remove(bullet);
+        enemy.health -= 1;
+        if(enemy.health <= 0){
+          enemy.play('explosion');
+          enemy.body.checkCollision.none = true;
+          enemyFiring.remove();
+          enemyMoving.stop();
+          gameOver(true);
+        }
+      });
+      // overlap 2 : player & enemyBullets
+      this.physics.add.overlap(player, enemyBullets,
+        function playerHit(_player, enemyBullet){
+          hit.setSpeedY(0.2 * enemyBullet.body.velocity.y).emitParticleAt(enemyBullet.body.x, enemyBullet.body.y);
+          enemyBullet.setActive(false);
+          enemyBullet.setVisible(false);
+          enemyBullets.remove(enemyBullet);
+          player.health -= 1;
+          //시발
+          hearts.visible = false;
+          if(player.health <= 0){
+            player.play('explosion');
+            player.body.checkCollision.none = true;
+            canPlayerFire = false;
+            //game over
+            gameOver(false);
+          }
+      });
+
+      // hit particle emitter
+      hit = this.add.particles('boom01').createEmitter({
+        alpha: { start: 1, end: 0},
+        blendMode: 7,
+        frequency: -1,
+        lifespan: 500,
+        radial: false,
+        scale: { start: 1, end: 1.2}
+      });
+
+      // animation
+      const animConfig = {
+        key:'explosion',
+        frames:'boom02',
+        frameRate:20,
+        repeat:false
+      };
+      this.anims.create(animConfig);
+      enemy.on('animationcomplete', enemyHide);
+
+      // restart
+      this.input.on('pointerdown', (event) => {
+          if(isGameOver){
+            console.log('restart');
+            // reset player
+            canPlayerFire = true;
+            // reset game state
+            isGameOver = false;
+            // restart scene
+            this.scene.restart();
+          }
+      });
+
+
+    }
+
+    function update(time, delta){
+
+      // move player
+      if(!isGameOver){
+        move();
+      }
+
+      // fire
+      if(fireButton.isDown && time > bulletTime && canPlayerFire === true){
+        var bullet = bullets.get();
+        if(bullet){
+          bullet.fire(player.x, player.y);
+          bulletTime = time + fireRate;
+        }
+      }
+
+      //moving cloud
+      clouds.getChildren().forEach(function(cloud){
+        cloud.y += cloudspeed;
+        if(cloud.y > 640){
+          cloud.y = -40;
+        }
+      }, this);
+
+      // enemy coming
+      if(enemy.y < enemy_position_y){
+        enemy.y += speed;
+      }
+
+      // setText
+      text1.setText([groupInfo(bullets), groupInfo(enemyBullets)]);
+      text2.setText("enemy HP:" + enemy.health + "\nplayer HP:" + player.health);
+    }
+
+
+
+    function enemyFire(){
+      var enemyBullet = enemyBullets.get();
+      if(enemyBullet){
+        enemyBullet.fire(enemy.x, enemy.y);
+      }
+    }
+
+
+    function groupInfo(group){
+      return group.name + " " + group.getLength() + "(" + group.countActive(true) + "/" + group.countActive(false) + ")";
+    }
+
+    function gameOver(winOrLose){
+      // lose
+      if(winOrLose === false) {
+        stateText.setText('Game Over\nClick to Restart');
+        stateText.visible = true;
+      }
+      // win
+      else{
+        stateText.setText('You Win!\nClick to Restart');
+        stateText.setColor('#00ff00');
+        stateText.visible = true;
+      }
+      isGameOver = true;
+    }
+
+    function enemyHide(){
+      enemy.body.collideWorldBounds = false;
+      enemy_position_y = -1000;
+      enemy.y = -1000;
+      enemy.visible = false;
+    }
+
+
+
+
+    function move(){
+      if(cursors.left.isDown && cursors.up.isDown){
+        //console.log('left');
+        player.x -= speed;
+        player.y -= speed;
+      }
+      else if(cursors.left.isDown && cursors.down.isDown){
+        player.x -= speed;
+        player.y += speed;
+      }
+      else if(cursors.right.isDown && cursors.up.isDown){
+        player.x += speed;
+        player.y -= speed;
+      }
+      else if(cursors.right.isDown && cursors.down.isDown){
+        player.x += speed;
+        player.y += speed;
+      }
+      else if(cursors.left.isDown){
+        player.x -= speed;
+      }
+      else if(cursors.right.isDown){
+        player.x += speed;
+      }
+      else if(cursors.up.isDown){
+        player.y -= 2;
+      }
+      else if(cursors.down.isDown){
+        player.y += 2;
+      }
+    }
+
+  </script>
+  </body>
+</html>

@@ -1,0 +1,62 @@
+{
+	"textures": [
+		{
+			"image": "boom03.png",
+			"format": "RGBA8888",
+			"size": {
+				"w": 67,
+				"h": 35
+			},
+			"scale": 1,
+			"frames": [
+				{
+					"filename": "boom01.png",
+					"rotated": false,
+					"trimmed": true,
+					"sourceSize": {
+						"w": 34,
+						"h": 35
+					},
+					"spriteSourceSize": {
+						"x": 1,
+						"y": 2,
+						"w": 33,
+						"h": 33
+					},
+					"frame": {
+						"x": 1,
+						"y": 1,
+						"w": 33,
+						"h": 33
+					}
+				},
+				{
+					"filename": "boom02.png",
+					"rotated": false,
+					"trimmed": true,
+					"sourceSize": {
+						"w": 34,
+						"h": 36
+					},
+					"spriteSourceSize": {
+						"x": 2,
+						"y": 2,
+						"w": 30,
+						"h": 32
+					},
+					"frame": {
+						"x": 36,
+						"y": 1,
+						"w": 30,
+						"h": 32
+					}
+				}
+			]
+		}
+	],
+	"meta": {
+		"app": "https://www.codeandweb.com/texturepacker",
+		"version": "3.0",
+		"smartupdate": "$TexturePacker:SmartUpdate:96de2ecd0e793b3f7f9ef84fb92a7478:6fb121849900b68d9b9741c8d995c4e9:2179b23ec2d615a3bcf69771657fa1f3$"
+	}
+}
